@@ -1,13 +1,13 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, type AnchorHTMLAttributes, type MouseEvent, type ReactNode } from 'react';
 
-type Props = React.AnchorHTMLAttributes<HTMLAnchorElement> & { children: React.ReactNode };
+type Props = AnchorHTMLAttributes<HTMLAnchorElement> & { children: ReactNode };
 
 export default function MagneticButton({ children, className = '', ...props }: Props) {
   const ref = useRef<HTMLAnchorElement>(null);
 
-  const move = (event: React.MouseEvent<HTMLAnchorElement>) => {
+  const move = (event: MouseEvent<HTMLAnchorElement>) => {
     const el = ref.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
