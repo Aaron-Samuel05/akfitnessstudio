@@ -5,17 +5,30 @@ import { useEffect, useState } from 'react';
 import VideoScroll from '../components/VideoScroll';
 import JoinModal from '../components/JoinModal';
 
-const fallback = 'https://images.unsplash.com/photo-1691916164036-445c4635edcd?auto=format&fit=crop&w=2400&q=88';
+const fallback = 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1800&q=82';
 const images = {
-  floor: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=2400&q=90',
-  athlete: 'https://images.unsplash.com/photo-1691916164036-445c4635edcd?auto=format&fit=crop&w=2000&q=90',
-  training: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=2000&q=90',
-  strength: 'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?auto=format&fit=crop&w=2000&q=90',
-  portrait: 'https://images.pexels.com/photos/15486187/pexels-photo-15486187.jpeg?auto=compress&cs=tinysrgb&w=1800&q=90',
+  floor: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=2000&q=86',
+  athlete: 'https://images.unsplash.com/photo-1691916164036-445c4635edcd?auto=format&fit=crop&w=1800&q=86',
+  training: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1800&q=86',
+  strength: 'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?auto=format&fit=crop&w=1800&q=86',
+  portrait: 'https://images.pexels.com/photos/15486187/pexels-photo-15486187.jpeg?auto=compress&cs=tinysrgb&w=1600&q=86',
 };
 
 function SafeImage({ src, alt, className = '' }: { src: string; alt: string; className?: string }) {
-  return <img className={className} src={src} alt={alt} loading="lazy" decoding="async" onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = fallback; }} />;
+  return (
+    <img
+      className={className}
+      src={src}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={(event) => {
+        event.currentTarget.onerror = null;
+        event.currentTarget.src = fallback;
+      }}
+    />
+  );
 }
 
 const plans = [
@@ -54,11 +67,11 @@ export default function Home() {
 
     <section className="membership" id="membership"><div className="section-index">05 / MEMBERSHIP</div><div className="membership-head"><p className="eyebrow">YOUR NEXT SESSION STARTS HERE</p><h2>CHOOSE<br/><span>YOUR LEVEL.</span></h2><p>Clear ways to start. No fake pricing, no pressure. Pick the path that sounds right and talk to the AK team.</p></div><div className="plan-grid">{plans.map(plan => <article className={`plan-card ${plan.featured ? 'featured' : ''}`} key={plan.name}>{plan.featured && <div className="popular">MOST POPULAR</div>}<span className="plan-name">{plan.name}</span><strong>ENQUIRE</strong><p>{plan.copy}</p><ul>{plan.items.map(item => <li key={item}><Check size={15}/>{item}</li>)}</ul><button onClick={() => setJoinOpen(true)}>START THIS PLAN <ArrowUpRight size={16}/></button></article>)}</div></section>
 
-    <section className="schedule" id="schedule"><div className="section-index">06 / SCHEDULE</div><div className="schedule-head"><p className="eyebrow">TRAIN ON YOUR TIME</p><h2>THIS WEEK<br/><span>ON THE FLOOR.</span></h2><button onClick={() => setJoinOpen(true)}>BOOK A TRIAL <ArrowUpRight size={16}/></button></div><div className="schedule-list">{classes.map(([time,name,days,duration]) => <div className="class-row" key={time+name}><strong>{time}</strong><div><h3>{name}</h3><span>{days}</span></div><span>{duration}</span><button onClick={() => setJoinOpen(true)}>BOOK ↗</button></div>)}</div></section>
+    <section className="schedule" id="schedule"><div className="section-index">06 / SCHEDULE</div><div className="schedule-head"><div><p className="eyebrow">TRAIN ON YOUR TIME</p><h2>THIS WEEK<br/><span>ON THE FLOOR.</span></h2></div><button onClick={() => setJoinOpen(true)}>BOOK A TRIAL <ArrowUpRight size={16}/></button></div><div className="schedule-list">{classes.map(([time,name,days,duration]) => <div className="class-row" key={time+name}><strong>{time}</strong><div><h3>{name}</h3><span>{days}</span></div><span>{duration}</span><button onClick={() => setJoinOpen(true)}>BOOK ↗</button></div>)}</div></section>
 
-    <section className="social-proof"><div className="proof-quote">“THE BEST TRAINING IS THE TRAINING YOU KEEP SHOWING UP FOR.”</div><div className="proof-stats"><div><strong>01</strong><span>COACHED<br/>SESSIONS</span></div><div><strong>02</strong><span>MEASURABLE<br/>PROGRESS</span></div><div><strong>03</strong><span>REAL<br/>COMMUNITY</span></div></div></section>
+    <section className="social-proof"><div className="proof-kicker">/ WHY AK</div><div className="proof-layout"><div><p className="proof-label">THE DIFFERENCE IS IN THE WORK.</p><div className="proof-quote">TRAINING SHOULD<br/><span>CHANGE SOMETHING.</span></div></div><div className="proof-side"><p>Not a room full of machines. Not a membership card you forget in a drawer. AK is built around coached sessions, measurable progress and a floor full of people who actually show up.</p><button onClick={() => setJoinOpen(true)}>START YOUR FIRST SESSION <ArrowUpRight size={16}/></button></div></div><div className="proof-stats"><div><strong>01</strong><span>COACHED<br/>SESSIONS</span></div><div><strong>02</strong><span>MEASURABLE<br/>PROGRESS</span></div><div><strong>03</strong><span>REAL<br/>COMMUNITY</span></div></div></section>
 
-    <section className="faq"><div className="section-index">07 / QUESTIONS</div><div><p className="eyebrow">BEFORE YOU START</p><h2>NO<br/><span>GUESSWORK.</span></h2></div><div className="faq-list">{faqs.map(([q,a],i) => <button className={`faq-row ${faq===i?'open':''}`} key={q} onClick={() => setFaq(faq===i?null:i)}><span>0{i+1}</span><div><h3>{q}</h3>{faq===i && <p>{a}</p>}</div><strong>{faq===i?'−':'+'}</strong></button>)}</div></section>
+    <section className="faq"><div className="section-index">07 / QUESTIONS</div><div className="faq-heading"><p className="eyebrow">BEFORE YOU START</p><h2>NO<br/><span>GUESSWORK.</span></h2></div><div className="faq-list">{faqs.map(([q,a],i) => <button className={`faq-row ${faq===i?'open':''}`} key={q} onClick={() => setFaq(faq===i?null:i)}><span>0{i+1}</span><div><h3>{q}</h3>{faq===i && <p>{a}</p>}</div><strong>{faq===i?'−':'+'}</strong></button>)}</div></section>
 
     <section className="contact-end" id="contact"><div className="after-kicker">/ 08 — GET IN</div><div className="contact-end-grid"><div><p className="contact-title">READY<br/><span>TO WORK?</span></p><p className="contact-lede">The fastest way to start is to tell us what you want and let the team take it from there.</p><button className="hero-join" onClick={() => setJoinOpen(true)}>JOIN AK NOW <ArrowUpRight size={20}/></button></div><div><div className="contact-box"><MapPin/><span>AK FITNESS STUDIO<br/>INDIA<br/><small>Replace with the real address before launch.</small></span></div><div className="contact-box"><Clock3/><span>OPEN DAILY<br/>05:00 — 23:00</span></div><div className="contact-box"><Phone/><span>CALL THE STUDIO<br/>+91 — YOUR NUMBER</span></div><div className="contact-social"><Instagram size={18}/> FOLLOW THE FLOOR</div></div></div></section>
 
