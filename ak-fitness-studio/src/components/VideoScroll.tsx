@@ -2,10 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-// The current public source is 4K/25fps. The playback engine below avoids
-// frame-by-frame seeking while scrolling, which removes the main source of
-// stutter. For true 60/120fps output, replace this URL with a self-hosted
-// 60fps master in /public/video/.
+// High-resolution source. Keep this as a progressive MP4 so Chrome can use
+// hardware decoding instead of routing the film through a canvas/WebGL layer.
 const VIDEO_SRC =
   'https://videos.pexels.com/video-files/4746014/4746014-uhd_3840_2160_25fps.mp4';
 
@@ -25,6 +23,7 @@ export default function VideoScroll() {
   const lastScrollY = useRef(0);
   const scrollVelocity = useRef(0);
   const lastFrame = useRef(0);
+  const lastSeekTime = useRef(0);
   const [active, setActive] = useState(0);
   const [ready, setReady] = useState(false);
 
@@ -42,7 +41,7 @@ export default function VideoScroll() {
       targetProgress.current = Math.min(1, Math.max(0, -rect.top / travel));
 
       const y = window.scrollY;
-      scrollVelocity.current = Math.max(-3, Math.min(3, (y - lastScrollY.current) / 24));
+      scrollVelocity.current = Math.max(-4, Math.min(4, (y - lastScrollY.current) / 18));
       lastScrollY.current = y;
 
       const next = Math.min(steps.length - 1, Math.floor(targetProgress.current * steps.length));
@@ -56,7 +55,7 @@ export default function VideoScroll() {
         requestAnimationFrame(measure);
       }
       if (idleTimer) clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => { scrollVelocity.current = 0; }, 100);
+      idleTimer = setTimeout(() => { scrollVelocity.current = 0; }, 90);
     };
 
     const tick = (now: number) => {
@@ -69,28 +68,38 @@ export default function VideoScroll() {
         const error = target - current;
         const velocity = scrollVelocity.current;
 
-        // Forward scrolling uses the hardware video decoder continuously instead
-        // of forcing a new 4K seek on every wheel/touch event. This is much more
-        // stable on 120/144/165Hz displays.
-        if (velocity > 0.03 && error > 0.001) {
-          const rate = Math.min(4, Math.max(0.7, Math.abs(error) * 9 + velocity * 0.55));
+        // While actively scrolling forward, let the browser's hardware decoder
+        // advance frames sequentially. This avoids repeatedly decoding random
+        // 4K keyframes, which is what causes the blurry/pixelated seek state.
+        if (velocity > 0.025 && error > 0.0005) {
+          const rate = Math.min(3.2, Math.max(0.55, Math.abs(error) * 10 + velocity * 0.42));
           video.playbackRate = rate;
           if (video.paused) void video.play().catch(() => {});
           currentProgress.current = video.currentTime / video.duration;
-        } else {
-          // When stopped or moving backwards, converge to the exact scroll frame.
-          // fastSeek is used for larger jumps where the browser supports it.
+        } else if (velocity < -0.025 && error < -0.0005) {
+          // Browsers do not reliably support reverse playback. Use throttled
+          // backward seeks rather than hammering currentTime every frame.
           video.pause();
-          const next = current + error * Math.min(1, dt / 75);
+          const next = current + error * Math.min(1, dt / 90);
           const nextTime = Math.max(0, Math.min(video.duration, next * video.duration));
-          const delta = Math.abs(nextTime - video.currentTime);
-
-          if (delta > 0.012) {
-            if (delta > 0.35 && 'fastSeek' in video) {
+          if (Math.abs(nextTime - video.currentTime) > 0.035 && now - lastSeekTime.current > 34) {
+            video.currentTime = nextTime;
+            lastSeekTime.current = now;
+          }
+          currentProgress.current = next;
+        } else {
+          // When the user stops, settle onto the exact scroll frame with a
+          // gentle convergence and avoid unnecessary seeks for tiny deltas.
+          video.pause();
+          const next = current + error * Math.min(1, dt / 110);
+          const nextTime = Math.max(0, Math.min(video.duration, next * video.duration));
+          if (Math.abs(nextTime - video.currentTime) > 0.025 && now - lastSeekTime.current > 45) {
+            if (Math.abs(nextTime - video.currentTime) > 0.4 && 'fastSeek' in video) {
               video.fastSeek(nextTime);
             } else {
               video.currentTime = nextTime;
             }
+            lastSeekTime.current = now;
           }
           currentProgress.current = next;
         }
@@ -121,7 +130,7 @@ export default function VideoScroll() {
           ref={videoRef}
           className="scroll-video"
           src={VIDEO_SRC}
-          poster="https://images.pexels.com/photos/416809/pexels-photo-416809.jpeg?auto=compress&cs=tinysrgb&w=2600"
+          poster="https://images.pexels.com/photos/416809/pexels-photo-416809.jpeg?auto=compress&cs=tinysrgb&w=3840&q=92"
           muted
           playsInline
           preload="auto"
@@ -131,7 +140,6 @@ export default function VideoScroll() {
           aria-hidden="true"
         />
         <div className="video-shade" />
-        <div className="video-grain" />
 
         <div className="video-progress">
           <span>{String(active + 1).padStart(2, '0')}</span><i /><span>{String(steps.length).padStart(2, '0')}</span>
@@ -151,7 +159,7 @@ export default function VideoScroll() {
         </div>
 
         <div className="video-status">
-          <span className={ready ? 'ready' : ''}>{ready ? 'VIDEO / READY' : 'LOADING FILM'}</span>
+          <span className={ready ? 'ready' : ''}>{ready ? 'FILM / 4K SOURCE' : 'LOADING FILM'}</span>
           <span>SCROLL CONTROLLED / HARDWARE DECODE</span>
         </div>
       </div>
