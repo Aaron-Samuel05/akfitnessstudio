@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-// Keep the source configurable so a self-hosted 60fps master can be dropped into
-// /public/video/ak-fitness-60.mp4 without changing the component again.
-const VIDEO_SRC = '/video/ak-fitness-60.mp4';
-const FALLBACK_SRC =
+// The current public source is 4K/25fps. The playback engine below avoids
+// frame-by-frame seeking while scrolling, which removes the main source of
+// stutter. For true 60/120fps output, replace this URL with a self-hosted
+// 60fps master in /public/video/.
+const VIDEO_SRC =
   'https://videos.pexels.com/video-files/4746014/4746014-uhd_3840_2160_25fps.mp4';
 
 const steps = [
@@ -26,38 +27,36 @@ export default function VideoScroll() {
   const lastFrame = useRef(0);
   const [active, setActive] = useState(0);
   const [ready, setReady] = useState(false);
-  const [usingFallback, setUsingFallback] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
     const section = video?.closest('.video-scroll');
     if (!video || !section) return;
 
-    let ticking = false;
+    let measureQueued = false;
     let idleTimer: ReturnType<typeof setTimeout> | undefined;
 
     const measure = () => {
       const rect = section.getBoundingClientRect();
       const travel = Math.max(1, rect.height - window.innerHeight);
-      const progress = Math.min(1, Math.max(0, -rect.top / travel));
-      targetProgress.current = progress;
+      targetProgress.current = Math.min(1, Math.max(0, -rect.top / travel));
 
       const y = window.scrollY;
       scrollVelocity.current = Math.max(-3, Math.min(3, (y - lastScrollY.current) / 24));
       lastScrollY.current = y;
 
-      const next = Math.min(steps.length - 1, Math.floor(progress * steps.length));
+      const next = Math.min(steps.length - 1, Math.floor(targetProgress.current * steps.length));
       setActive((current) => current === next ? current : next);
-      ticking = false;
+      measureQueued = false;
     };
 
     const onScroll = () => {
-      if (!ticking) {
-        ticking = true;
+      if (!measureQueued) {
+        measureQueued = true;
         requestAnimationFrame(measure);
       }
       if (idleTimer) clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => { scrollVelocity.current = 0; }, 90);
+      idleTimer = setTimeout(() => { scrollVelocity.current = 0; }, 100);
     };
 
     const tick = (now: number) => {
@@ -70,34 +69,30 @@ export default function VideoScroll() {
         const error = target - current;
         const velocity = scrollVelocity.current;
 
-        // While scrolling forward, let the browser's hardware video decoder play
-        // continuously instead of forcing a 4K seek on every scroll event.
-        // This is dramatically smoother on high-refresh-rate displays.
-        if (Math.abs(velocity) > 0.03 && velocity > 0) {
-          const rate = Math.min(3.5, Math.max(0.65, Math.abs(error) * 10 + Math.abs(velocity) * 0.45));
+        // Forward scrolling uses the hardware video decoder continuously instead
+        // of forcing a new 4K seek on every wheel/touch event. This is much more
+        // stable on 120/144/165Hz displays.
+        if (velocity > 0.03 && error > 0.001) {
+          const rate = Math.min(4, Math.max(0.7, Math.abs(error) * 9 + velocity * 0.55));
           video.playbackRate = rate;
           if (video.paused) void video.play().catch(() => {});
-          currentProgress.current += ((video.currentTime / video.duration) - current) * 0.35;
+          currentProgress.current = video.currentTime / video.duration;
         } else {
-          // For reverse scrolling / when the user stops, converge to the exact
-          // scroll position. Use fastSeek for large jumps when supported.
+          // When stopped or moving backwards, converge to the exact scroll frame.
+          // fastSeek is used for larger jumps where the browser supports it.
           video.pause();
-          const next = current + error * Math.min(1, dt / 85);
-          const nextTime = next * video.duration;
-          if (Math.abs(nextTime - video.currentTime) > 0.012) {
-            if (Math.abs(nextTime - video.currentTime) > 0.35 && 'fastSeek' in video) {
-              video.fastSeek(Math.max(0, Math.min(video.duration, nextTime)));
+          const next = current + error * Math.min(1, dt / 75);
+          const nextTime = Math.max(0, Math.min(video.duration, next * video.duration));
+          const delta = Math.abs(nextTime - video.currentTime);
+
+          if (delta > 0.012) {
+            if (delta > 0.35 && 'fastSeek' in video) {
+              video.fastSeek(nextTime);
             } else {
-              video.currentTime = Math.max(0, Math.min(video.duration, nextTime));
+              video.currentTime = nextTime;
             }
           }
           currentProgress.current = next;
-        }
-
-        // If playback has caught the scroll position, stop without introducing
-        // another expensive seek.
-        if (Math.abs(error) < 0.004 && Math.abs(velocity) < 0.03 && !video.paused) {
-          video.pause();
         }
       }
 
@@ -125,7 +120,7 @@ export default function VideoScroll() {
         <video
           ref={videoRef}
           className="scroll-video"
-          src={usingFallback ? FALLBACK_SRC : VIDEO_SRC}
+          src={VIDEO_SRC}
           poster="https://images.pexels.com/photos/416809/pexels-photo-416809.jpeg?auto=compress&cs=tinysrgb&w=2600"
           muted
           playsInline
@@ -133,12 +128,6 @@ export default function VideoScroll() {
           disablePictureInPicture
           controlsList="nodownload noplaybackrate noremoteplayback"
           onLoadedMetadata={() => setReady(true)}
-          onError={() => {
-            if (!usingFallback) {
-              setUsingFallback(true);
-              setReady(false);
-            }
-          }}
           aria-hidden="true"
         />
         <div className="video-shade" />
@@ -162,8 +151,8 @@ export default function VideoScroll() {
         </div>
 
         <div className="video-status">
-          <span className={ready ? 'ready' : ''}>{ready ? (usingFallback ? 'VIDEO / FALLBACK' : 'VIDEO / READY') : 'LOADING FILM'}</span>
-          <span>SCROLL CONTROLLED / HIGH FPS</span>
+          <span className={ready ? 'ready' : ''}>{ready ? 'VIDEO / READY' : 'LOADING FILM'}</span>
+          <span>SCROLL CONTROLLED / HARDWARE DECODE</span>
         </div>
       </div>
 
