@@ -7,6 +7,11 @@ import { useEffect, useRef, useState } from 'react';
 const VIDEO_SRC =
   'https://videos.pexels.com/video-files/4746014/4746014-uhd_3840_2160_25fps.mp4';
 
+// Premium still shown immediately while the film is loading.
+// Pexels: muscular man training in a gym.
+const HERO_POSTER =
+  'https://images.pexels.com/photos/5327523/pexels-photo-5327523.jpeg?auto=compress&cs=tinysrgb&w=3840&q=92';
+
 const steps = [
   { id: 'home', kicker: 'AK FITNESS STUDIO / INDIA', title: <>TRAIN<br /><span>HARD.</span></>, body: 'A performance-driven training studio built around strength, discipline and showing up.' },
   { id: 'training', kicker: 'THE METHOD', title: <>BUILT<br /><span>TO MOVE.</span></>, body: 'Strength. Conditioning. Personal training. No shortcuts, no noise — just better work.' },
@@ -68,17 +73,12 @@ export default function VideoScroll() {
         const error = target - current;
         const velocity = scrollVelocity.current;
 
-        // While actively scrolling forward, let the browser's hardware decoder
-        // advance frames sequentially. This avoids repeatedly decoding random
-        // 4K keyframes, which is what causes the blurry/pixelated seek state.
         if (velocity > 0.025 && error > 0.0005) {
           const rate = Math.min(3.2, Math.max(0.55, Math.abs(error) * 10 + velocity * 0.42));
           video.playbackRate = rate;
           if (video.paused) void video.play().catch(() => {});
           currentProgress.current = video.currentTime / video.duration;
         } else if (velocity < -0.025 && error < -0.0005) {
-          // Browsers do not reliably support reverse playback. Use throttled
-          // backward seeks rather than hammering currentTime every frame.
           video.pause();
           const next = current + error * Math.min(1, dt / 90);
           const nextTime = Math.max(0, Math.min(video.duration, next * video.duration));
@@ -88,8 +88,6 @@ export default function VideoScroll() {
           }
           currentProgress.current = next;
         } else {
-          // When the user stops, settle onto the exact scroll frame with a
-          // gentle convergence and avoid unnecessary seeks for tiny deltas.
           video.pause();
           const next = current + error * Math.min(1, dt / 110);
           const nextTime = Math.max(0, Math.min(video.duration, next * video.duration));
@@ -130,7 +128,7 @@ export default function VideoScroll() {
           ref={videoRef}
           className="scroll-video"
           src={VIDEO_SRC}
-          poster="https://images.pexels.com/photos/416809/pexels-photo-416809.jpeg?auto=compress&cs=tinysrgb&w=3840&q=92"
+          poster={HERO_POSTER}
           muted
           playsInline
           preload="auto"
